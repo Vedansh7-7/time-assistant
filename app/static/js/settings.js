@@ -364,6 +364,7 @@ async function renderAssistant() {
     model: 'This model is not available. Use Load models and pick another.',
     auth: 'The API key was refused. Check it on the Pi, then restart the app.',
     rate: 'Too many requests right now. Try again in a minute.',
+    blocked: "The provider's firewall blocked the request. Update the app, or try again later.",
     unreachable: "Could not connect. Check the base URL and the Pi's internet.",
     config: null,
     bad_response: 'The provider answered with an error.',

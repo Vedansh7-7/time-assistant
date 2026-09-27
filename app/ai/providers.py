@@ -16,8 +16,13 @@ import urllib.request
 from dataclasses import dataclass
 
 
+# Cloudflare (in front of Groq and others) rejects Python's default "Python-urllib" agent
+# with 403 "error code: 1010", so identify the app explicitly.
+USER_AGENT = "time-assistant/0.2 (+https://github.com/Vedansh7-7/time-assistant)"
+
+
 class ProviderError(Exception):
-    """kind: model | auth | rate | unreachable | bad_response | config"""
+    """kind: model | auth | rate | blocked | unreachable | bad_response | config"""
 
     def __init__(self, message: str, kind: str = "bad_response"):
         super().__init__(message)
@@ -25,6 +30,8 @@ class ProviderError(Exception):
 
 
 def _kind(status: int, body: str) -> str:
+    if "error code: 10" in body:  # Cloudflare block (1010 bad agent, 1020 firewall rule, ...)
+        return "blocked"
     try:
         err = json.loads(body).get("error", {})
         code = str(err.get("code") or err.get("type") or "")
@@ -57,7 +64,7 @@ class Provider:
         return self.enabled and bool(self.base_url and self.model) and (not self.api_key_env or bool(self.api_key))
 
     def _request(self, path: str, body: dict | None = None, timeout: float | None = None) -> dict:
-        headers = {"Content-Type": "application/json"}
+        headers = {"Content-Type": "application/json", "User-Agent": USER_AGENT, "Accept": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
         req = urllib.request.Request(self.base_url.rstrip("/") + path, headers=headers,
@@ -141,7 +148,7 @@ class ProviderChain:
                 self.errors.append(str(e))
                 self.kinds.append(e.kind)
         # Report the most actionable failure: a wrong model or key beats "unreachable".
-        for kind in ("model", "auth", "rate", "bad_response", "unreachable"):
+        for kind in ("model", "auth", "rate", "blocked", "bad_response", "unreachable"):
             if kind in self.kinds:
                 raise ProviderError("; ".join(self.errors), kind)
         raise ProviderError("no AI provider configured", "config")

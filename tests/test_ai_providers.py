@@ -30,13 +30,28 @@ class FakeAPI(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _blocked(self):
+        # Like Cloudflare in front of Groq: Python's default agent is refused.
+        if self.headers.get("User-Agent", "").startswith("Python-urllib"):
+            body = b"error code: 1010"
+            self.send_response(403)
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return True
+        return False
+
     def do_GET(self):
+        if self._blocked():
+            return
         if self.headers.get("Authorization") != "Bearer good-key":
             return self._send(401, {"error": {"code": "invalid_api_key", "message": "Invalid API Key"}})
         self._send(200, {"data": [{"id": self.good_model}, {"id": "llama-3.1-8b-instant"}]})
 
     def do_POST(self):
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        if self._blocked():
+            return
         if self.headers.get("Authorization") != "Bearer good-key":
             return self._send(401, {"error": {"code": "invalid_api_key", "message": "Invalid API Key"}})
         if body["model"] != self.good_model:
@@ -120,3 +135,10 @@ def test_models_and_test_endpoints(api, key, tmp_path):
         unsaved[0]["model"] = "openai/gpt-oss-120b"
         (res,) = client.post("/api/ai/test", json={"providers": unsaved}).json()["results"]
         assert res["ok"] is True
+
+
+def test_sends_an_app_user_agent_and_classifies_cloudflare_blocks(api, key):
+    from app.ai import providers as pm
+    assert not pm.USER_AGENT.startswith("Python-urllib")
+    assert asyncio.run(prov(api).ping())["ok"] is True  # the fake API refuses Python-urllib
+    assert pm._kind(403, "error code: 1010\n") == "blocked"
