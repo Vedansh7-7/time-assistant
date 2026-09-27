@@ -1,0 +1,22 @@
+[Unit]
+Description=Personal Time Assistant (owner :8000 LAN, public booking :8001 localhost)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__DIR__
+EnvironmentFile=-/etc/time-assistant.env
+ExecStart=__DIR__/.venv/bin/python -m app.serve
+Restart=on-failure
+RestartSec=5
+# Pi 3B has 1 GB RAM: cap memory so a runaway process can't take the system down.
+MemoryMax=300M
+Nice=5
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="color-scheme" content="light dark">
+<title>Book a time</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='3' y='6' width='9' height='7' fill='%23b0573a'/%3E%3Crect x='12' y='7' width='2' height='4' fill='%23b0573a'/%3E%3Crect x='4' y='2' width='1' height='3' fill='%23857359'/%3E%3Crect x='7' y='1' width='1' height='4' fill='%23857359'/%3E%3C/svg%3E">
+<link rel="preload" href="/book/fonts/newsreader-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/book/theme.css">
+<link rel="stylesheet" href="/book/assets/book.css">
+</head>
+<body data-mood="think">
+<a class="skip" href="#main">Skip to content</a>
+<p id="announce" class="sr-only" aria-live="polite"></p>
+
+<main id="main">
+
+  <!-- Loading -->
+  <section id="v-loading" class="view card center">
+    <div class="art cat" data-art="art-cat"></div>
+    <h1 tabindex="-1" class="quiet">One moment</h1>
+  </section>
+
+  <!-- Closed or unreachable -->
+  <section id="v-closed" class="view card center" hidden>
+    <div class="art cat" data-art="art-cat"></div>
+    <h1 id="x-title" tabindex="-1">Booking is closed right now</h1>
+    <p id="x-text" class="soft">Check back a little later.</p>
+  </section>
+
+  <!-- Step 1: purpose and duration -->
+  <section id="v-intro" class="view card intro" hidden>
+    <div class="art cup" data-art="art-teacup"></div>
+    <h1 id="i-title" tabindex="-1">Let's find a time</h1>
+    <p id="i-intro" class="lede"></p>
+    <form id="f-intro" novalidate>
+      <div class="field">
+        <label for="motive">What would you like to talk about?</label>
+        <textarea id="motive" name="motive" rows="3" maxlength="500" required autocomplete="off"
+          placeholder="A short note on the purpose"></textarea>
+      </div>
+      <fieldset class="field">
+        <legend>How long?</legend>
+        <div class="pills" id="i-durations"></div>
+      </fieldset>
+      <p class="err" id="i-err" role="alert"></p>
+      <button class="btn primary block" type="submit" id="i-submit">See times</button>
+    </form>
+  </section>
+
+  <!-- Steps 2 to 4: day, time, details -->
+  <section id="v-book" class="view booker" data-step="day" hidden>
+    <header class="summary">
+      <button class="icon-btn back" type="button" id="b-back" aria-label="Back">
+        <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M12.5 4.5 7 10l5.5 5.5"/></svg>
+      </button>
+      <div class="art cat-mini" data-art="art-cat"></div>
+      <h1 id="b-title" tabindex="-1"></h1>
+      <p id="b-meta" class="b-meta"></p>
+      <div class="progress" id="b-progress" role="progressbar" aria-label="Progress"
+        aria-valuemin="1" aria-valuemax="4" aria-valuenow="2" aria-valuetext="Step 2 of 4">
+        <span class="on"></span><span class="on"></span><span></span><span></span>
+      </div>
+      <p id="b-purpose" class="purpose"></p>
+      <ul class="facts">
+        <li>
+          <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="7.25"/><path d="M10 6v4.25l2.75 1.75"/></svg>
+          <span id="b-dur"></span>
+        </li>
+        <li>
+          <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="7.25"/><path d="M2.75 10h14.5M10 2.75c2 2 3 4.4 3 7.25s-1 5.25-3 7.25c-2-2-3-4.4-3-7.25s1-5.25 3-7.25z"/></svg>
+          <span id="b-tz"></span>
+        </li>
+      </ul>
+      <button class="link b-edit" type="button" id="b-edit">Edit</button>
+    </header>
+
+    <p class="err b-alert" id="b-alert" role="alert"></p>
+
+    <!-- Desktop: month calendar -->
+    <div class="pane cal">
+      <div class="cal-head">
+        <h2 id="c-title"></h2>
+        <div class="cal-nav">
+          <button class="icon-btn" type="button" id="c-prev" aria-label="Previous month">
+            <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M12.5 4.5 7 10l5.5 5.5"/></svg>
+          </button>
+          <button class="icon-btn" type="button" id="c-next" aria-label="Next month">
+            <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M7.5 4.5 13 10l-5.5 5.5"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="dow" aria-hidden="true"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+      <div class="cal-grid" id="c-grid" role="group" aria-labelledby="c-title"></div>
+      <p class="empty" id="c-empty" hidden></p>
+    </div>
+
+    <!-- Phone: two-week day strip -->
+    <div class="pane strip-pane">
+      <div class="strip" id="s-strip" role="group" aria-label="Days"></div>
+      <p class="empty" id="s-empty" hidden></p>
+      <div class="strip-nav">
+        <button class="link" type="button" id="s-prev">Earlier dates</button>
+        <button class="link" type="button" id="s-next">Later dates</button>
+      </div>
+    </div>
+
+    <!-- Open times for the selected day -->
+    <div class="pane times">
+      <div class="times-head">
+        <h2 id="t-title">Pick a day</h2>
+        <div class="fmt" role="group" aria-label="Time format">
+          <button type="button" id="t-12" aria-pressed="false">12h</button>
+          <button type="button" id="t-24" aria-pressed="true">24h</button>
+        </div>
+      </div>
+      <p class="err" id="t-err" role="alert"></p>
+      <ul class="t-list" id="t-list" aria-labelledby="t-title"></ul>
+      <label class="check" id="t-busy-wrap" hidden><input type="checkbox" id="t-busy"> Show busy times</label>
+    </div>
+
+    <!-- Name and email -->
+    <div class="pane details">
+      <h2 id="d-title" tabindex="-1">Your details</h2>
+      <p class="when">
+        <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="7.25"/><path d="M10 6v4.25l2.75 1.75"/></svg>
+        <span id="d-when"></span>
+      </p>
+      <form id="f-details" novalidate>
+        <div class="field">
+          <label for="d-name">Name</label>
+          <input id="d-name" name="name" autocomplete="name" maxlength="80" required>
+        </div>
+        <div class="field">
+          <label for="d-email">Email</label>
+          <input id="d-email" name="email" type="email" inputmode="email" autocomplete="email" maxlength="254" required spellcheck="false">
+        </div>
+        <div class="hp" aria-hidden="true">
+          <label for="d-website">Website</label>
+          <input id="d-website" name="website" tabindex="-1" autocomplete="off">
+        </div>
+        <p class="err" id="d-err" role="alert"></p>
+        <div class="actions">
+          <button class="btn d-back" type="button" id="d-back">Back</button>
+          <button class="btn primary" type="submit" id="d-submit">Request this time</button>
+        </div>
+      </form>
+    </div>
+
+    <p class="tz-foot" id="b-tz-foot"></p>
+  </section>
+
+  <!-- Done -->
+  <section id="v-done" class="view card center" hidden>
+    <div class="art cat" data-art="art-cat"></div>
+    <h1 id="s-title" tabindex="-1">Request sent</h1>
+    <p class="when">
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="7.25"/><path d="M10 6v4.25l2.75 1.75"/></svg>
+      <span id="s-when"></span>
+    </p>
+    <p id="s-text" class="soft"></p>
+    <p class="soft small">Save this link to check on it or withdraw:</p>
+    <p><a id="s-link" class="status-link"></a></p>
+  </section>
+
+  <!-- Status -->
+  <section id="v-status" class="view card center" hidden>
+    <div class="art cat" data-art="art-cat"></div>
+    <h1 id="st-title" tabindex="-1">
+      <svg id="st-check" class="h-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false" hidden><path d="M4.5 10.5 8 14l7.5-8"/></svg>
+      <span id="st-title-text"></span>
+    </h1>
+    <p class="when" id="st-when-row">
+      <svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="10" cy="10" r="7.25"/><path d="M10 6v4.25l2.75 1.75"/></svg>
+      <span id="st-when"></span>
+    </p>
+    <p id="st-motive" class="motive"></p>
+    <p id="st-text" class="soft"></p>
+    <blockquote id="st-reason" hidden></blockquote>
+    <div id="st-confirm" class="confirm" hidden>
+      <p id="st-confirm-q">Withdraw this request?</p>
+      <div class="actions center-row">
+        <button class="btn danger" type="button" id="st-yes">Yes, withdraw</button>
+        <button class="btn" type="button" id="st-no">Keep it</button>
+      </div>
+    </div>
+    <p class="err" id="st-err" role="alert"></p>
+    <div class="actions center-row" id="st-actions">
+      <button class="btn" type="button" id="st-withdraw" hidden>Withdraw request</button>
+      <a class="btn primary" href="/book">Book another time</a>
+    </div>
+  </section>
+
+</main>
+<script src="/book/assets/book.js" defer></script>
+</body>
+</html>

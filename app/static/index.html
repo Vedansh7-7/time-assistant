@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Time Assistant</title>
+  <meta name="theme-color" content="#f4eee3" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#211a15" media="(prefers-color-scheme: dark)">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+  <link rel="preload" href="/static/fonts/newsreader-latin-wght.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/theme.css">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="topbar">
+    <a class="brand" href="#/">Time Assistant</a>
+    <nav id="nav" class="nav" aria-label="Main"></nav>
+  </header>
+  <p class="offline-flag" id="offline" role="status"></p>
+  <main id="main" tabindex="-1"></main>
+  <button class="fab" id="fab" type="button" aria-label="Add" aria-keyshortcuts="n"></button>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <script type="module" src="/static/app.js"></script>
+</body>
+</html>

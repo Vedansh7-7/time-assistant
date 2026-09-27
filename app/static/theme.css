@@ -1,0 +1,155 @@
+/* Shared design tokens: "paper planner". Used by the owner app and the public booking page.
+   Tokens and base typography only; no layout. Every text/background pair listed in the
+   comments meets WCAG AA (4.5:1) in both themes. Fill colours (--terracotta, --olive, ...)
+   are for surfaces and marks; text uses the matching --*-ink token. */
+
+@font-face {
+  font-family: "Newsreader";
+  src: url("fonts/newsreader-latin-wght.woff2") format("woff2");
+  font-weight: 300 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light dark;
+
+  /* paper & ink */
+  --paper: #f4eee3;
+  --paper-raised: #fbf8f2;
+  --paper-sunk: #ebe3d4;
+  --rule: #ddd2c0;           /* hairlines, decorative only */
+  --rule-strong: #857359;    /* control boundaries: >= 3:1 on every paper */
+  --ink: #33281f;            /* 11.2+ */
+  --ink-soft: #5b4b3e;       /* 6.5+  */
+  --ink-faint: #6b5b4c;      /* 5.1+  */
+
+  /* accent fills */
+  --terracotta: #b0573a;
+  --terracotta-soft: #f0dcd1;
+  --olive: #6f7440;
+  --olive-soft: #e4e5cc;
+  --ochre: #b8872f;
+  --ochre-soft: #f2e4c4;
+  --sage: #7f9a86;
+  --plum: #7a4b5c;
+
+  /* accent text (on any paper) */
+  --terracotta-ink: #974629; /* links, accent text: 5.1+ */
+  --olive-ink: #53582a;
+  --ochre-ink: #7a5813;
+  --danger-ink: #9a3526;
+
+  /* semantic */
+  --accent: var(--terracotta);
+  --on-accent: #fffaf3;      /* 4.7 on --accent */
+  --danger: #a33b2c;
+  --on-danger: #ffffff;      /* 6.5 */
+  --danger-soft: #f3d9d1;
+  --focus: #9c4a24;          /* 5.3 on paper */
+
+  /* heat scale: paper -> sepia. Text: --ink on 0-3, --paper on 4 */
+  --heat-0: #efe7d8;
+  --heat-1: #e3d1b3;
+  --heat-2: #d4b48c;
+  --heat-3: #c09470;
+  --heat-4: #7d5238;
+
+  /* authority edge tints (level 1 -> 5), used as a thin block edge only */
+  --lvl-1: #cdbfa8;
+  --lvl-2: #a9a77a;
+  --lvl-3: #c49a5c;
+  --lvl-4: #b8704c;
+  --lvl-5: #8f3f2c;
+
+  /* type */
+  --serif: "Newsreader", "Iowan Old Style", Georgia, serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --typewriter: "Courier Prime", "American Typewriter", "Courier New", monospace;
+
+  --fs-xs: 0.8125rem;   /* 13px: captions, axis labels (never smaller) */
+  --fs-sm: 0.875rem;    /* 14px: secondary text */
+  --fs-md: 1rem;        /* 16px: body, controls */
+  --fs-lg: 1.25rem;     /* 20px: section titles */
+  --fs-xl: 1.75rem;     /* 28px: page titles */
+  --fs-2xl: 2.5rem;     /* 40px: display (date on home) */
+  --lh-tight: 1.15;
+  --lh: 1.5;
+
+  /* space (4px grid) */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+
+  /* shape */
+  --radius-sm: 4px;
+  --radius: 8px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+  --shadow: 0 1px 2px rgba(51, 40, 31, .06), 0 4px 16px rgba(51, 40, 31, .06);
+  --shadow-lift: 0 2px 4px rgba(51, 40, 31, .08), 0 12px 32px rgba(51, 40, 31, .12);
+  --scrim: rgba(33, 26, 21, .32);
+
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --dur: 220ms;
+  --tap: 44px;
+}
+
+/* Night paper */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #211a15;
+    --paper-raised: #2b231c;
+    --paper-sunk: #1a1410;
+    --rule: #3d3228;
+    --rule-strong: #85715c;
+    --ink: #ecdfcb;
+    --ink-soft: #c2b19b;
+    --ink-faint: #a4927e;
+
+    --terracotta: #d98060;
+    --terracotta-soft: #46291f;
+    --olive: #aab175;
+    --olive-soft: #35361f;
+    --ochre: #dcae5a;
+    --ochre-soft: #42341a;
+    --sage: #9db7a3;
+    --plum: #c08aa0;
+
+    --terracotta-ink: #e2906f;
+    --olive-ink: #b3ba7e;
+    --ochre-ink: #dcae5a;
+    --danger-ink: #ea8d7a;
+
+    --on-accent: #211a15;
+    --danger: #e0806d;
+    --on-danger: #211a15;
+    --danger-soft: #45231d;
+    --focus: #e3a07b;
+
+    --heat-0: #2b231c;
+    --heat-1: #45372a;
+    --heat-2: #5e4632;
+    --heat-3: #7c573b;
+    --heat-4: #d39a68;
+
+    --lvl-1: #54473a;
+    --lvl-2: #7d7c55;
+    --lvl-3: #a68350;
+    --lvl-4: #c27a57;
+    --lvl-5: #e0806d;
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 4px 16px rgba(0, 0, 0, .25);
+    --shadow-lift: 0 2px 4px rgba(0, 0, 0, .35), 0 12px 32px rgba(0, 0, 0, .4);
+    --scrim: rgba(0, 0, 0, .5);
+  }
+}
+
+/* Browser surfaces carry the palette too. */
+::selection { background: var(--terracotta-soft); color: var(--ink); }
+:root { accent-color: var(--accent); caret-color: var(--terracotta-ink); }

@@ -1,0 +1,11 @@
+{
+  "name": "Time Assistant",
+  "short_name": "Time",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4eee3",
+  "theme_color": "#f4eee3",
+  "icons": [
+    { "src": "/static/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
