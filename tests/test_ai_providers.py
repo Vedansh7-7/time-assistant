@@ -54,6 +54,12 @@ class FakeAPI(BaseHTTPRequestHandler):
             return
         if self.headers.get("Authorization") != "Bearer good-key":
             return self._send(401, {"error": {"code": "invalid_api_key", "message": "Invalid API Key"}})
+        if body["model"] == "busy-model":
+            FakeAPI.busy_hits = getattr(FakeAPI, "busy_hits", 0) + 1
+            if FakeAPI.busy_hits % 2 == 1:  # every first attempt is rate limited
+                return self._send(429, {"error": {"code": "rate_limit_exceeded", "type": "tokens",
+                                                  "message": "Rate limit reached. Please try again in 0.3s."}})
+            return self._send(200, {"choices": [{"message": {"role": "assistant", "content": "OK"}}]})
         if body["model"] != self.good_model:
             return self._send(404, {"error": {"code": "model_not_found", "type": "invalid_request_error",
                                               "message": f"The model `{body['model']}` does not exist"}})
@@ -142,3 +148,25 @@ def test_sends_an_app_user_agent_and_classifies_cloudflare_blocks(api, key):
     assert not pm.USER_AGENT.startswith("Python-urllib")
     assert asyncio.run(prov(api).ping())["ok"] is True  # the fake API refuses Python-urllib
     assert pm._kind(403, "error code: 1010\n") == "blocked"
+
+
+def test_short_rate_limit_is_waited_out(api, key):
+    msg = asyncio.run(prov(api, model="busy-model").chat([{"role": "user", "content": "hi"}], []))
+    assert msg["content"] == "OK"
+
+
+def test_retry_after_parsing():
+    from app.ai.providers import _retry_after
+    assert _retry_after(None, "Please try again in 7.66s.") == 7.66
+    assert _retry_after(None, "Please try again in 1m30.5s.") == 90.5
+    assert _retry_after({"retry-after": "4"}, "") == 4.0
+    assert _retry_after(None, "nothing here") is None
+
+
+def test_chat_tools_are_lean_and_valid():
+    import json
+    from app.tools.registry import BY_NAME, CHAT_TOOLS, chat_schemas
+    assert all(n in BY_NAME for n in CHAT_TOOLS)
+    assert {"create_commitment", "confirm_pending", "check_commitment"} <= set(CHAT_TOOLS)
+    size = len(json.dumps(chat_schemas())) // 4
+    assert size < 2200, f"chat tool schemas ~{size} tokens; keep them small for free API tiers"

@@ -332,6 +332,36 @@ TOOLS: list[Tool] = [
 
 BY_NAME = {t.name: t for t in TOOLS}
 
+# The chat assistant gets a lean subset: every schema is sent on every model call, and free
+# API tiers limit tokens per minute. MCP clients and scripts still get the full TOOLS list.
+CHAT_TOOLS = [
+    "find_person", "find_commitments", "get_schedule", "find_available_slots", "check_commitment",
+    "create_commitment", "modify_commitment", "cancel_commitments", "get_tasks", "create_task",
+    "propose_work_blocks", "confirm_pending", "reject_pending",
+]
+
+
+def _compact(schema: dict, top: bool = True) -> dict:
+    """Drop what the model can do without: nested descriptions, empty required lists, strictness flags."""
+    out = {}
+    for k, v in schema.items():
+        if k == "additionalProperties" or (k == "required" and not v):
+            continue
+        if k == "description" and not top:
+            continue
+        if k == "properties":
+            v = {name: _compact(p, top=False) for name, p in v.items()}
+        elif k == "items" and isinstance(v, dict):
+            v = _compact(v, top=False)
+        out[k] = v
+    return out
+
+
+def chat_schemas() -> list[dict]:
+    return [{"type": "function", "function": {
+        "name": t.name, "description": t.description.split(". ")[0].rstrip(".") + ".",
+        "parameters": _compact(t.parameters)}} for t in (BY_NAME[n] for n in CHAT_TOOLS)]
+
 
 def tool_catalog() -> list[dict]:
     return [{"name": t.name, "category": t.category, "description": t.description, "parameters": t.parameters}

@@ -11,6 +11,7 @@ import asyncio
 import time
 import json
 import os
+import re
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -24,9 +25,21 @@ USER_AGENT = "time-assistant/0.2 (+https://github.com/Vedansh7-7/time-assistant)
 class ProviderError(Exception):
     """kind: model | auth | rate | blocked | unreachable | bad_response | config"""
 
-    def __init__(self, message: str, kind: str = "bad_response"):
+    def __init__(self, message: str, kind: str = "bad_response", retry_after: float | None = None):
         super().__init__(message)
         self.kind = kind
+        self.retry_after = retry_after
+
+
+def _retry_after(headers, body: str) -> float | None:
+    """Seconds to wait, from the Retry-After header or Groq's "Please try again in 7.66s"."""
+    try:
+        if headers and headers.get("retry-after"):
+            return float(headers.get("retry-after"))
+    except ValueError:
+        pass
+    m = re.search(r"try again in (?:(\d+)m)?([\d.]+)s", body)
+    return (int(m.group(1) or 0) * 60 + float(m.group(2))) if m else None
 
 
 def _kind(status: int, body: str) -> str:
@@ -75,7 +88,8 @@ class Provider:
                 return json.loads(r.read())
         except urllib.error.HTTPError as e:
             detail = e.read()[:400].decode(errors="replace")
-            raise ProviderError(f"{self.name}: HTTP {e.code} {detail}", _kind(e.code, detail)) from e
+            raise ProviderError(f"{self.name}: HTTP {e.code} {detail}", _kind(e.code, detail),
+                                _retry_after(e.headers, detail)) from e
         except (urllib.error.URLError, TimeoutError, OSError) as e:
             raise ProviderError(f"{self.name}: unreachable ({e})", "unreachable") from e
         except ValueError as e:
@@ -110,7 +124,14 @@ class Provider:
         if tools:
             body["tools"] = tools
             body["tool_choice"] = "auto"
-        data = await asyncio.to_thread(self._post, body)
+        try:
+            data = await asyncio.to_thread(self._post, body)
+        except ProviderError as e:
+            # A short rate-limit wait is cheaper than failing the whole question.
+            if e.kind != "rate" or e.retry_after is None or e.retry_after > 20:
+                raise
+            await asyncio.sleep(e.retry_after + 0.5)
+            data = await asyncio.to_thread(self._post, body)
         try:
             return data["choices"][0]["message"]
         except (KeyError, IndexError, TypeError):

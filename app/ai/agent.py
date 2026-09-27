@@ -23,13 +23,13 @@ from ..db.connection import write_tx
 from ..services import serialize as ser
 from ..services import settings as settings_mod
 from ..services.core import CoreService, ServiceError
-from ..tools.registry import TOOLS, ToolContext, call_tool
+from ..tools.registry import ToolContext, call_tool, chat_schemas
 from .providers import ProviderChain, ProviderError, from_settings
 
 log = logging.getLogger("agent")
 MAX_STEPS = 8
-HISTORY_MESSAGES = 40
-OLD_TOOL_RESULT_CHARS = 1200
+HISTORY_MESSAGES = 16
+OLD_TOOL_RESULT_CHARS = 500
 
 SYSTEM_PROMPT = """You are a concise personal scheduling assistant for one user.
 
@@ -191,7 +191,7 @@ async def handle_message(open_conn, now_fn, text: str, conversation: str = "defa
         messages += _trim(history)
         messages.append(user_msg)
         new_msgs: list[dict] = [user_msg]
-        tool_schemas = [t.schema() for t in TOOLS]
+        tool_schemas = chat_schemas()
 
         reply = None
         try:
