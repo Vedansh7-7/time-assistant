@@ -98,6 +98,10 @@
   --ease-out: cubic-bezier(.16, 1, .3, 1);
   --dur: 220ms;
   --tap: 44px;
+
+  /* QR codes stay dark on white in both themes so they always scan */
+  --qr-paper: #ffffff;
+  --qr-ink: #000000;
 }
 
 /* Night paper */

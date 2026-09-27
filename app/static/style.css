@@ -536,6 +536,18 @@ h3.sub { font-size: var(--fs-md); font-weight: 600; margin-top: var(--s-2); }
 .provider-more { border-top: 0; padding-top: 0; }
 .ext { display: inline-flex; align-items: center; gap: var(--s-1); }
 .keys { font-size: var(--fs-sm); color: var(--ink-soft); }
+.share {
+  display: flex; flex-direction: column; gap: var(--s-3);
+  padding: var(--s-4); border: 1px solid var(--rule); border-radius: var(--radius);
+  background: var(--paper-raised);
+}
+.share > h3.sub { margin-top: 0; }
+.share-body { display: grid; grid-template-columns: 11rem minmax(0, 1fr); gap: var(--s-5); align-items: start; }
+.share-side { display: flex; flex-direction: column; gap: var(--s-3); min-width: 0; }
+.share-link { font-family: var(--sans); font-size: var(--fs-sm); }
+.qr { display: block; width: 100%; height: auto; border-radius: var(--radius-sm); outline: 1px solid var(--rule); }
+.qr .qr-bg { fill: var(--qr-paper); }
+.qr .qr-fg { fill: var(--qr-ink); }
 
 /* ------------------------------------------------------------------ laptop: two-column agenda on busy days */
 @media (min-width: 1000px) {
@@ -620,6 +632,9 @@ h3.sub { font-size: var(--fs-md); font-weight: 600; margin-top: var(--s-2); }
   .settings-nav { display: none; }
   .settings-picker { display: flex; flex-direction: column; gap: var(--s-1); }
   .kv { grid-template-columns: minmax(0, 1fr); gap: 0 0; }
+  .share-body { grid-template-columns: minmax(0, 1fr); gap: var(--s-4); }
+  .share-qr { width: min(15rem, 100%); margin: 0 auto; }
+  .share-side .actions .btn { flex: 1 1 auto; }
   .kv dd { margin-bottom: var(--s-3); }
 }
 

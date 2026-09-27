@@ -5,6 +5,7 @@ import {
   loadingLine, changed, nextId, WEEKDAYS,
 } from './core.js';
 import { icon } from './icons.js';
+import { qrMatrix, qrSvg, qrSvgBlob, qrPngBlob, saveBlob } from './qr.js';
 
 const SECTIONS = [
   ['schedule', 'Schedule'], ['availability', 'Availability'], ['reminders', 'Reminders'],
@@ -223,8 +224,9 @@ async function renderBooking() {
   };
   const enabledId = nextId('en');
   f.enabled.id = enabledId;
+  const share = shareCard(v);
   return h('div.stack',
-    h('p', h('a.ext', { href: '/book', target: '_blank', rel: 'noopener' }, 'Open the booking page', icon('external', { size: 16 }), h('span.vh', ' (opens in a new tab)'))),
+    share.el,
     saveForm(form => form.append(
       h('label.check', { for: enabledId }, f.enabled, h('span', 'Accept booking requests')),
       h('div.grid2', field('Your name', f.owner_name), field('Headline', f.headline)),
@@ -249,8 +251,70 @@ async function renderBooking() {
       };
       await put('/api/settings/public', out);
       Object.assign(v, out);
+      share.update(v);
       return true;
     }));
+}
+
+// The public booking link: "<public_base_url>/book", or null when it cannot be shared yet.
+function bookingLink(v) {
+  const base = (v.public_base_url || '').trim().replace(/\/+$/, '');
+  if (!base) return null;
+  try {
+    const u = new URL(base + '/book');
+    return u.protocol === 'https:' || u.protocol === 'http:' ? u.href : null;
+  } catch { return null; }
+}
+
+// "Share" card: link, copy, QR (SVG on screen, PNG/SVG downloads) and open. update(v) re-renders it.
+function shareCard(v) {
+  const el = h('section.share', { 'aria-labelledby': 'share-title' });
+  function update(s) {
+    const link = s.enabled ? bookingLink(s) : null;
+    const head = h('h3.sub#share-title', 'Share');
+    if (!link) {
+      const why = !s.enabled && !(s.public_base_url || '').trim()
+        ? 'Turn on booking requests and add your public address below to get a QR code.'
+        : !s.enabled ? 'Turn on booking requests below to get a QR code.'
+          : (s.public_base_url || '').trim() ? 'Your public address is not a valid link.'
+            : 'Add your public address below to get a QR code.';
+      clear(el, head, h('p.hint', why),
+        h('p', h('a.ext', { href: '/book', target: '_blank', rel: 'noopener' }, 'Preview the booking page', icon('external', { size: 16 }), h('span.vh', ' (opens in a new tab)'))));
+      return;
+    }
+    const m = qrMatrix(link);
+    const text = h('input.share-link', { type: 'text', readonly: true, value: link, spellcheck: 'false', 'aria-label': 'Booking link' });
+    text.addEventListener('focus', () => text.select());
+    const copy = async () => {
+      try {
+        await navigator.clipboard.writeText(link);
+        toast('Link copied.', 'success');
+      } catch {
+        text.focus();
+        text.select();
+        let ok = false;
+        try { ok = document.execCommand('copy'); } catch { /* not supported */ }
+        toast(ok ? 'Link copied.' : 'Link selected. Press Ctrl+C to copy.', ok ? 'success' : 'info');
+      }
+    };
+    const png = async btn => busy(btn, async () => {
+      try { saveBlob(await qrPngBlob(m, 1024), 'booking-qr.png'); } catch (e) { toast(errorText(e), 'error'); }
+    });
+    const pngBtn = h('button.btn', { type: 'button', onclick: () => png(pngBtn) }, icon('download', { size: 16 }), 'Download PNG');
+    clear(el, head,
+      h('div.share-body',
+        h('div.share-qr', qrSvg(m, { label: `QR code for ${link}` })),
+        h('div.share-side',
+          text,
+          h('div.actions.start',
+            h('button.btn.primary', { type: 'button', onclick: copy }, icon('copy', { size: 16 }), 'Copy'),
+            h('a.btn', { href: link, target: '_blank', rel: 'noopener' }, icon('external', { size: 16 }), 'Open', h('span.vh', ' (opens in a new tab)'))),
+          h('div.actions.start',
+            pngBtn,
+            h('button.btn', { type: 'button', onclick: () => saveBlob(qrSvgBlob(m), 'booking-qr.svg') }, icon('download', { size: 16 }), 'Download SVG')))));
+  }
+  update(v);
+  return { el, update };
 }
 
 // ---------------------------------------------------------------- email
