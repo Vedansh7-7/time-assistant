@@ -11,9 +11,9 @@ from pathlib import Path
 
 from fastapi import APIRouter, Body, FastAPI, Request
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
-from . import __version__
+from . import __version__, assets
 from .db.connection import connect, migrate, utcnow
 from .services import public
 from .services.core import CoreService, ServiceError
@@ -45,10 +45,17 @@ def public_router(open_conn, now_fn) -> APIRouter:
     @r.get("/book/", include_in_schema=False)
     @r.get("/book/status/{ref}", include_in_schema=False)
     def page(ref: str | None = None):
-        return FileResponse(PUBLIC_STATIC / "index.html", headers={"Cache-Control": "no-cache"})
+        return HTMLResponse(assets.public_index(), headers=assets.REVALIDATE)
+
+    @r.get("/book/v/{build}/{path:path}", include_in_schema=False)
+    def versioned(build: str, path: str):
+        f = assets.public_file(path)
+        if f is None:
+            return JSONResponse({"error": "NOT_FOUND"}, status_code=404)
+        return FileResponse(f, headers=assets.IMMUTABLE if build == assets.build_id() else assets.REVALIDATE)
 
     @r.get("/book/assets/{path:path}", include_in_schema=False)
-    def assets(path: str):
+    def asset(path: str):
         base = PUBLIC_STATIC.resolve()
         f = (base / path).resolve()
         if base not in f.parents or not f.is_file():
@@ -123,6 +130,6 @@ def create_public_app(cfg=None, now_fn=utcnow) -> FastAPI:
 
     @app.get("/", include_in_schema=False)
     def root():
-        return FileResponse(PUBLIC_STATIC / "index.html", headers={"Cache-Control": "no-cache"})
+        return HTMLResponse(assets.public_index(), headers=assets.REVALIDATE)
 
     return app

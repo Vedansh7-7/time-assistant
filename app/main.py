@@ -14,9 +14,10 @@ from typing import Any
 
 from fastapi import Body, Depends, FastAPI, Query, Request
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 
 from . import __version__
+from . import assets
 from . import config as config_mod
 from .ai import agent as agent_mod
 from .ai import providers as providers_mod
@@ -74,7 +75,15 @@ def create_app(cfg: config_mod.Config | None = None, now_fn=utcnow) -> FastAPI:
     # ------------------------------------------------------------ static / health
     @app.get("/", include_in_schema=False)
     def index():
-        return FileResponse(STATIC / "index.html")
+        return HTMLResponse(assets.owner_index(), headers=assets.REVALIDATE)
+
+    @app.get("/static/v/{build}/{path:path}", include_in_schema=False)
+    def static_versioned(build: str, path: str):
+        f = assets.resolve(STATIC, path)
+        if f is None:
+            return JSONResponse({"error": "NOT_FOUND"}, status_code=404)
+        # Only the current build is immutable; an old tab asking for an old build gets today's file, revalidated.
+        return FileResponse(f, headers=assets.IMMUTABLE if build == assets.build_id() else assets.REVALIDATE)
 
     @app.get("/static/fonts/{name}", include_in_schema=False)
     def font(name: str):

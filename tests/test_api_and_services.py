@@ -252,3 +252,23 @@ def test_pending_describes_candidate_and_replacements(client):
     (p,) = client.get("/api/pending").json()
     assert p["candidate"]["title"] == "Rahul" and p["replaces"] == ["Arjun"]
     assert client.get("/api/requests/count").json() == {"open": 0}
+
+
+def test_pages_use_versioned_immutable_assets(client):
+    import re
+    html = client.get("/").text
+    urls = re.findall(r'"(/static/v/[0-9a-f]{10}/[^"]+)"', html)
+    assert any(u.endswith("/app.js") for u in urls) and "modulepreload" in html
+    assert '"/static/app.js"' not in html  # never the old, possibly browser-cached URL
+    for u in urls:
+        r = client.get(u)
+        assert r.status_code == 200, u
+        assert "immutable" in r.headers["cache-control"], u
+    # app.js imports './js/core.js'; relative imports must resolve inside the versioned folder
+    app_js = next(u for u in urls if u.endswith("/app.js"))
+    assert client.get(app_js.rsplit("/", 1)[0] + "/js/core.js").status_code == 200
+    assert client.get("/").headers["cache-control"] == "no-cache"
+    book = client.get("/book").text
+    for u in re.findall(r'"(/book/v/[0-9a-f]{10}/[^"]+)"', book):
+        assert client.get(u).status_code == 200, u
+    assert '"/book/assets/book.js"' not in book
