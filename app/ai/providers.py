@@ -8,6 +8,7 @@ the first one that answers wins. Stdlib only (urllib) to stay light on a Pi.
 from __future__ import annotations
 
 import asyncio
+import time
 import json
 import os
 import urllib.error
@@ -16,7 +17,26 @@ from dataclasses import dataclass
 
 
 class ProviderError(Exception):
-    pass
+    """kind: model | auth | rate | unreachable | bad_response | config"""
+
+    def __init__(self, message: str, kind: str = "bad_response"):
+        super().__init__(message)
+        self.kind = kind
+
+
+def _kind(status: int, body: str) -> str:
+    try:
+        err = json.loads(body).get("error", {})
+        code = str(err.get("code") or err.get("type") or "")
+    except (ValueError, AttributeError):
+        code = ""
+    if code in ("model_not_found", "model_decommissioned") or "model" in code and "not" in code:
+        return "model"
+    if status in (401, 403) or "api_key" in code:
+        return "auth"
+    if status == 429:
+        return "rate"
+    return "bad_response"
 
 
 @dataclass
@@ -36,20 +56,47 @@ class Provider:
     def configured(self) -> bool:
         return self.enabled and bool(self.base_url and self.model) and (not self.api_key_env or bool(self.api_key))
 
-    def _post(self, body: dict) -> dict:
+    def _request(self, path: str, body: dict | None = None, timeout: float | None = None) -> dict:
         headers = {"Content-Type": "application/json"}
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
-        req = urllib.request.Request(self.base_url.rstrip("/") + "/chat/completions",
-                                     data=json.dumps(body).encode(), headers=headers, method="POST")
+        req = urllib.request.Request(self.base_url.rstrip("/") + path, headers=headers,
+                                     data=None if body is None else json.dumps(body).encode(),
+                                     method="GET" if body is None else "POST")
         try:
-            with urllib.request.urlopen(req, timeout=self.timeout_s) as r:
+            with urllib.request.urlopen(req, timeout=timeout or self.timeout_s) as r:
                 return json.loads(r.read())
         except urllib.error.HTTPError as e:
-            detail = e.read()[:300].decode(errors="replace")
-            raise ProviderError(f"{self.name}: HTTP {e.code} {detail}") from e
+            detail = e.read()[:400].decode(errors="replace")
+            raise ProviderError(f"{self.name}: HTTP {e.code} {detail}", _kind(e.code, detail)) from e
         except (urllib.error.URLError, TimeoutError, OSError) as e:
-            raise ProviderError(f"{self.name}: unreachable ({e})") from e
+            raise ProviderError(f"{self.name}: unreachable ({e})", "unreachable") from e
+        except ValueError as e:
+            raise ProviderError(f"{self.name}: malformed response", "bad_response") from e
+
+    def _post(self, body: dict) -> dict:
+        return self._request("/chat/completions", body)
+
+    async def list_models(self) -> list[str]:
+        """Models this key can use, from the provider's OpenAI-compatible /models endpoint."""
+        data = await asyncio.to_thread(self._request, "/models", None, 15)
+        return sorted(m["id"] for m in data.get("data", []) if isinstance(m, dict) and m.get("id"))
+
+    async def ping(self) -> dict:
+        """One tiny request; returns {ok, ms, kind, error} for the settings Test button."""
+        if not self.base_url or not self.model:
+            return {"ok": False, "ms": 0, "kind": "config", "error": "Base URL and model are required."}
+        if self.api_key_env and not self.api_key:
+            return {"ok": False, "ms": 0, "kind": "config",
+                    "error": f"The server has no {self.api_key_env} set. Add it on the Pi and restart."}
+        t0 = time.monotonic()
+        try:
+            await asyncio.to_thread(self._request, "/chat/completions",
+                                    {"model": self.model, "messages": [{"role": "user", "content": "Reply with OK."}],
+                                     "max_tokens": 5}, 20)
+            return {"ok": True, "ms": int((time.monotonic() - t0) * 1000), "kind": None, "error": None}
+        except ProviderError as e:
+            return {"ok": False, "ms": int((time.monotonic() - t0) * 1000), "kind": e.kind, "error": str(e)[:300]}
 
     async def chat(self, messages: list[dict], tools: list[dict]) -> dict:
         body = {"model": self.model, "messages": messages, "temperature": 0.2}
@@ -60,7 +107,7 @@ class Provider:
         try:
             return data["choices"][0]["message"]
         except (KeyError, IndexError, TypeError):
-            raise ProviderError(f"{self.name}: malformed response")
+            raise ProviderError(f"{self.name}: malformed response", "bad_response")
 
 
 def from_settings(ai_cfg: dict) -> list[Provider]:
@@ -78,6 +125,7 @@ class ProviderChain:
         self.providers = [p for p in providers if p.configured]
         self.used: str | None = None
         self.errors: list[str] = []
+        self.kinds: list[str] = []
 
     @property
     def available(self) -> bool:
@@ -91,7 +139,12 @@ class ProviderChain:
                 return msg
             except ProviderError as e:
                 self.errors.append(str(e))
-        raise ProviderError("; ".join(self.errors) or "no AI provider configured")
+                self.kinds.append(e.kind)
+        # Report the most actionable failure: a wrong model or key beats "unreachable".
+        for kind in ("model", "auth", "rate", "bad_response", "unreachable"):
+            if kind in self.kinds:
+                raise ProviderError("; ".join(self.errors), kind)
+        raise ProviderError("no AI provider configured", "config")
 
 
 async def status(ai_cfg: dict) -> list[dict]:

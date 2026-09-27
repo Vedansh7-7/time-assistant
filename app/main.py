@@ -328,6 +328,33 @@ def create_app(cfg: config_mod.Config | None = None, now_fn=utcnow) -> FastAPI:
     def tools():
         return tool_catalog()
 
+    def _providers(body: dict, svc: CoreService) -> list:
+        """Providers from the request (unsaved form values) or, if absent, from saved settings."""
+        ai_cfg = settings_mod.get(svc.conn, "ai")
+        if isinstance(body.get("providers"), list):
+            ai_cfg = {**ai_cfg, "providers": body["providers"]}
+        return providers_mod.from_settings(ai_cfg)
+
+    @app.post("/api/ai/models")
+    async def ai_models(body: dict = Body(default={}), svc: CoreService = Depends(get_svc)):
+        provs = [p for p in _providers(body, svc) if p.name == body.get("name")] or _providers(body, svc)[:1]
+        if not provs:
+            raise ServiceError("NOT_FOUND", "No such provider", 404)
+        try:
+            return {"name": provs[0].name, "models": await provs[0].list_models()}
+        except providers_mod.ProviderError as e:
+            raise ServiceError("PROVIDER_ERROR", str(e)[:300], 502, {"kind": e.kind})
+
+    @app.post("/api/ai/test")
+    async def ai_test(body: dict = Body(default={}), svc: CoreService = Depends(get_svc)):
+        out = []
+        for p in _providers(body, svc):
+            if not p.enabled:
+                out.append({"name": p.name, "model": p.model, "ok": None, "skipped": True})
+                continue
+            out.append({"name": p.name, "model": p.model, **await p.ping()})
+        return {"results": out}
+
     @app.post("/api/chat")
     async def chat(body: dict = Body(...)):
         text = (body.get("message") or "").strip()

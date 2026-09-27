@@ -54,6 +54,9 @@ kbd {
 
 .faint { color: var(--ink-faint); }
 .ok-ink { color: var(--olive-ink); }
+.danger-ink { color: var(--danger-ink); }
+.test-results { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s-1); font-size: var(--fs-sm); }
+.test-results:empty { display: none; }
 .warn-ink { color: var(--ochre-ink); }
 .sep { color: var(--ink-faint); }
 .grow { flex: 1 1 auto; min-width: 0; }

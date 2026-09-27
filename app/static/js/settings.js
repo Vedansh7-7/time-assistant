@@ -359,6 +359,15 @@ async function renderAssistant() {
         h('span', h('span.row-strong', t), h('span.faint', ` ${hint}`)))));
   const list = h('ol.providers');
   let form;
+  const current = () => providers.map(({ _k, ...p }) => p);
+  const KIND_TEXT = {
+    model: 'This model is not available. Use Load models and pick another.',
+    auth: 'The API key was refused. Check it on the Pi, then restart the app.',
+    rate: 'Too many requests right now. Try again in a minute.',
+    unreachable: "Could not connect. Check the base URL and the Pi's internet.",
+    config: null,
+    bad_response: 'The provider answered with an error.',
+  };
   const draw = focusKey => {
     clear(list, providers.map((p, i) => {
       const nm = `${p.name || 'Provider'}`;
@@ -375,7 +384,7 @@ async function renderAssistant() {
           h('div.stack',
             h('div.grid2',
               field('Name', h('input', { value: p.name, oninput: upd('name') })),
-              field('Model', h('input', { value: p.model, spellcheck: 'false', oninput: upd('model') }))),
+              modelField(p, upd)),
             field('Base URL', h('input', { value: p.base_url, type: 'url', spellcheck: 'false', oninput: upd('base_url') })),
             field('API key variable', h('input', { value: p.api_key_env || '', spellcheck: 'false', oninput: upd('api_key_env') }), { hint: 'Leave empty for a local model.' }),
             h('div.actions.start', h('button.link.danger', { type: 'button', onclick: () => { providers.splice(i, 1); form.markDirty(); draw(); } }, `Remove ${nm}`)))));
@@ -385,6 +394,42 @@ async function renderAssistant() {
       if (el && !el.disabled) el.focus(); else list.querySelector(`[data-key^="${focusKey.split(':')[0] === 'up' ? 'down' : 'up'}:${focusKey.split(':')[1]}"]`)?.focus();
     }
   };
+  // Model input with suggestions fetched from the provider (unsaved form values are used).
+  function modelField(p, upd) {
+    const dl = h('datalist', { id: nextId('models') });
+    const note = h('p.hint', { 'aria-live': 'polite' });
+    const input = h('input', { value: p.model, spellcheck: 'false', list: dl.id, oninput: upd('model') });
+    const load = h('button.btn.btn-quiet.small', {
+      type: 'button',
+      onclick: e => busy(e.currentTarget, async () => {
+        note.textContent = 'Loading';
+        try {
+          const r = await post('/api/ai/models', { name: p.name, providers: current() });
+          clear(dl, r.models.map(m => h('option', { value: m })));
+          note.textContent = r.models.length
+            ? `${r.models.length} models available. Click the Model field to pick one.`
+            : 'The provider returned no models.';
+          input.focus();
+        } catch (err) { note.textContent = errorText(err); }
+      }),
+    }, 'Load models');
+    return h('div.stack', field('Model', input), dl, h('div.actions.start', load), note);
+  }
+  const results = h('ul.test-results', { 'aria-live': 'polite' });
+  const testBtn = h('button.btn.btn-quiet', {
+    type: 'button',
+    onclick: e => busy(e.currentTarget, async () => {
+      clear(results, h('li.faint', 'Testing'));
+      try {
+        const r = await post('/api/ai/test', { providers: current() });
+        clear(results, r.results.map(x => h('li',
+          h('span.row-strong', x.name), ' ',
+          x.skipped ? h('span.faint', 'off')
+            : x.ok ? h('span.ok-ink', `working, ${x.ms} ms`)
+              : h('span.danger-ink', KIND_TEXT[x.kind] || x.error))));
+      } catch (err) { clear(results, h('li.danger-ink', errorText(err))); }
+    }),
+  }, 'Test');
   const move = (i, d, key) => { [providers[i + d], providers[i]] = [providers[i], providers[i + d]]; form.markDirty(); draw(key); };
   draw();
   form = saveForm(fm => fm.append(
@@ -392,11 +437,12 @@ async function renderAssistant() {
     privacy,
     h('h3.sub', 'Providers, tried in order'),
     list,
-    h('div.actions.start', h('button.btn.btn-quiet', {
+    h('div.actions.start', testBtn, h('button.btn.btn-quiet', {
       type: 'button',
       onclick: () => { providers.push({ name: 'provider', enabled: true, base_url: '', model: '', api_key_env: '', _k: ++seq }); form.markDirty(); draw(); list.lastElementChild?.querySelector('details')?.setAttribute('open', ''); },
     }, 'Add provider')),
-    h('p.hint', 'API keys live in the server environment, never in the app.'),
+    results,
+    h('p.hint', 'API keys live in the server environment, never in the app. Test uses the values above, even before you save.'),
   ), async fm => {
     const out = {
       ...ai, enabled: enabled.checked,

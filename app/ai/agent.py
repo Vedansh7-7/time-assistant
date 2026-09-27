@@ -221,8 +221,12 @@ async def handle_message(open_conn, now_fn, text: str, conversation: str = "defa
                 reply = "That took too many steps. Could you say it more simply?"
         except ProviderError as e:
             log.warning("AI unavailable: %s", e)
-            reply = ("I can't reach the assistant right now. Your schedule still works; "
-                     "use Manual to add things and try me again later.")
+            reply = {
+                "model": "The assistant's model isn't available anymore. Pick another one in Settings, Assistant.",
+                "auth": "The assistant's API key was refused. Check the key on the Pi, then restart the app.",
+                "rate": "The assistant is getting too many requests right now. Try again in a minute.",
+            }.get(e.kind, "I can't reach the assistant right now. Your schedule still works; "
+                          "use Manual to add things and try me again later.")
             if ctx.executed:
                 reply += " Note: " + " ".join(_describe_result(r) for r in ctx.executed)
             cards = _pending_cards(svc, ctx.created_tokens)

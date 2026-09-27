@@ -39,7 +39,7 @@ DEFAULTS: dict = {
         # Tried in order. api_key_env names an environment variable (keys are never stored in the DB).
         "providers": [
             {"name": "groq", "enabled": True, "base_url": "https://api.groq.com/openai/v1",
-             "model": "llama-3.3-70b-versatile", "api_key_env": "GROQ_API_KEY"},
+             "model": "openai/gpt-oss-120b", "api_key_env": "GROQ_API_KEY"},
             {"name": "ollama", "enabled": False, "base_url": "http://localhost:11434/v1",
              "model": "qwen2.5:7b", "api_key_env": ""},
         ],
