@@ -49,7 +49,7 @@ TA_TZ=Asia/Kolkata .venv/bin/python -m app.serve    # owner :8000, public :8001
 
 ## Deploy on the Pi
 
-Follow **[deploy/STEPS.md](deploy/STEPS.md)**: plain commands to copy the code from your PC with `scp` and set it up on the Pi over `ssh`, plus everyday and update commands.
+Follow **[deploy/STEPS.md](deploy/STEPS.md)**: plain commands to copy the code from your PC with `scp` and set it up on the Pi over `ssh`, plus everyday commands. Once set up, the Pi updates itself from GitHub `main` every night at 23:59: it tests the new commit, restarts, checks health, and rolls back on its own if anything fails (`deploy/update.sh`).
 
 Both servers run in one Python process, and systemd caps it at 300 MB. Check the real usage on the Pi with `systemctl status time-assistant` (the Memory: line).
 

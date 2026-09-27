@@ -1,0 +1,11 @@
+[Unit]
+Description=Check GitHub for Time Assistant updates every night at 23:59
+
+[Timer]
+# Pi's local time: set it with  sudo timedatectl set-timezone Asia/Kolkata
+OnCalendar=*-*-* 23:59:00
+# If the Pi was off at 23:59, run once when it boots.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

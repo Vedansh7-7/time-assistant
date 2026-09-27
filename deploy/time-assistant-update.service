@@ -1,0 +1,12 @@
+[Unit]
+Description=Time Assistant nightly update from GitHub
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=__USER__
+WorkingDirectory=__DIR__
+ExecStart=/bin/bash __DIR__/deploy/update.sh
+TimeoutStartSec=20min
+Nice=10
