@@ -49,15 +49,7 @@ TA_TZ=Asia/Kolkata .venv/bin/python -m app.serve    # owner :8000, public :8001
 
 ## Deploy on the Pi
 
-**Step-by-step guide: [deploy/STEPS.md](deploy/STEPS.md).** From Windows, `deploy\ssh-setup.ps1` sets up key login once, `deploy\deploy.ps1` ships the last commit, and `deploy\pi.ps1 status|logs|restart|backup|pull-backup` covers daily use. The manual route is below.
-
-```bash
-# copy this folder to the Pi, e.g. /home/pi/time-assistant, then:
-bash deploy/install.sh              # venv, deps, systemd service, pre-upgrade DB backup
-sudo nano /etc/time-assistant.env   # keys and timezone (see below)
-sudo systemctl restart time-assistant
-journalctl -u time-assistant -f     # logs
-```
+Follow **[deploy/STEPS.md](deploy/STEPS.md)**: plain commands to copy the code from your PC with `scp` and set it up on the Pi over `ssh`, plus everyday and update commands.
 
 Both servers run in one Python process, and systemd caps it at 300 MB. Check the real usage on the Pi with `systemctl status time-assistant` (the Memory: line).
 

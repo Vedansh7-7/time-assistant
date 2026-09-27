@@ -1,97 +1,112 @@
-# Pi setup, step by step
+# Pi setup: commands to type
 
-Run the commands in **PowerShell on your laptop**, from the project folder
-(`E:\claude\Deals\personal-assitant`), unless a step says "on the Pi". Everything here is free.
+Two places:
+- **PC**: PowerShell on your laptop.
+- **Pi**: after `ssh`-ing into the Pi.
 
-## 1. One-time laptop setup
+Replace `pi` with your Pi username and `10.202.6.57` with its IP (run `hostname -I` on the Pi to see it).
 
-1. Check SSH works: `ssh -V`. If the command is missing, go to Windows Settings > System > Optional features > Add "OpenSSH Client".
-2. Copy the Pi settings file:
-   ```powershell
-   Copy-Item deploy\pi.config.example deploy\pi.config
-   notepad deploy\pi.config
-   ```
-   Set `PI_USER` to your Pi's username (the one you log in with) and `PI_DIR` to `/home/<that user>/time-assistant`.
-   Set `PI_HOST` to the Pi's IP. To find it, run `hostname -I` on the Pi.
-3. Install an SSH key so you never type the password again:
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File deploy\ssh-setup.ps1
-   ```
-   It asks for the Pi password once. Afterwards `ssh timepi` logs straight in.
+## First install
 
-## 2. Stop the old version (on the Pi, one time)
-
-The old app from the zip may still be running on port 8000.
+**1. PC**: pack the code and copy it to the Pi.
 ```powershell
-ssh timepi
+cd E:\claude\Deals\personal-assitant
+git archive --format=tar -o $env:TEMP\ta.tar HEAD
+scp $env:TEMP\ta.tar pi@10.202.6.57:/tmp/ta.tar
 ```
-Then on the Pi:
+
+**2. PC**: log in to the Pi.
+```powershell
+ssh pi@10.202.6.57
+```
+
+**3. Pi**: stop the old app and unpack the new one.
 ```bash
-pkill -f "uvicorn app.main:app" || true      # stops the old manual run
-exit
+pkill -f "uvicorn app.main:app"
+mkdir -p ~/time-assistant && cd ~/time-assistant
+tar -xf /tmp/ta.tar && rm /tmp/ta.tar
 ```
-Your old `data/assistant.db` is left alone. The new app uses a new file.
 
-## 3. Deploy
+**4. Pi**: install Python packages (5 to 10 minutes on a Pi 3).
+```bash
+sudo apt update && sudo apt install -y python3-venv sqlite3 curl
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+```
 
+**5. Pi**: test run. Open `http://10.202.6.57:8000` on your phone, then press Ctrl+C.
+```bash
+TA_TZ=Asia/Kolkata .venv/bin/python -m app.serve
+```
+
+**6. Pi**: settings file. Put your Groq key after `GROQ_API_KEY=`, then save (Ctrl+O, Enter, Ctrl+X).
+```bash
+sudo cp deploy/time-assistant.env.example /etc/time-assistant.env
+sudo chmod 600 /etc/time-assistant.env
+sudo nano /etc/time-assistant.env
+```
+A free key comes from https://console.groq.com (API Keys). After step 7, turn the assistant on in the app under Settings > Assistant.
+
+**7. Pi**: run it as a service, so it starts on boot.
+```bash
+sed -e "s#__USER__#$USER#" -e "s#__DIR__#$HOME/time-assistant#" deploy/time-assistant.service | sudo tee /etc/systemd/system/time-assistant.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now time-assistant
+curl http://127.0.0.1:8000/health
+```
+The last line should print `{"ok":true,...}`.
+
+**8. Router**: reserve the Pi's IP (often called "DHCP reservation") so the address doesn't change after a reboot.
+
+## Everyday (Pi)
+
+```bash
+systemctl status time-assistant                      # running? memory
+journalctl -u time-assistant -f                      # live log, Ctrl+C to stop
+sudo systemctl restart time-assistant                # restart
+sudo nano /etc/time-assistant.env                    # edit keys, then restart
+curl -X POST http://127.0.0.1:8000/api/backup/run    # back up now
+free -h                                              # memory
+df -h /                                              # disk space
+```
+
+**PC**: copy the Pi's backups to your laptop.
 ```powershell
-powershell -ExecutionPolicy Bypass -File deploy\deploy.ps1
+mkdir E:\claude\Deals\backups -Force
+scp "pi@10.202.6.57:~/time-assistant/data/backups/*.db" E:\claude\Deals\backups\
 ```
-This runs the tests, uploads the last commit, installs Python packages (the first time takes 5 to 10 minutes on a Pi 3), sets up the `time-assistant` service so it starts on boot, and checks it's healthy.
 
-Open `http://<PI_HOST>:8000` on your phone or laptop (same Wi-Fi).
+## Updating later
 
-Every later update is just: commit, then run `deploy\deploy.ps1` again. Your database and backups are never touched, and the database is backed up before each restart.
+**PC**: repeat step 1.
 
-## 4. First settings (in the web app)
+**Pi**:
+```bash
+cd ~/time-assistant
+sqlite3 data/time_assistant.db ".backup data/before-update.db"
+rm -rf app tests deploy
+tar -xf /tmp/ta.tar && rm /tmp/ta.tar
+.venv/bin/pip install -r requirements.txt
+sudo systemctl restart time-assistant
+```
+Your data in `data/` is never overwritten.
 
-Go to **Settings** and fill in:
-1. Schedule: your timezone (e.g. `Asia/Kolkata`) and day hours.
-2. Availability: times you keep clear (e.g. lunch) and preferred meeting times.
-3. Reminders: the default offset (15 min is set).
+## Optional: log in without a password
 
-Then add your people and your recurring commitments (classes and so on).
-
-## 5. Turn on the assistant (free Groq key)
-
-1. Create a key at https://console.groq.com > API Keys.
-2. Put it on the Pi:
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File deploy\pi.ps1 env
-   ```
-   Set `GROQ_API_KEY=...`, save (Ctrl+O, Enter, Ctrl+X), and the service restarts.
-3. In the app go to Settings > Assistant and switch it on. Press (+) and choose Ask to try it.
-
-## 6. Keep the Pi's address fixed
-
-In your router's admin page, reserve the Pi's current IP (often called "DHCP reservation").
-Otherwise the address can change after a reboot.
-
-## 7. Everyday commands
-
+**PC**:
 ```powershell
-powershell -ExecutionPolicy Bypass -File deploy\pi.ps1 status       # running? memory, disk, version
-powershell -ExecutionPolicy Bypass -File deploy\pi.ps1 logs         # live log (Ctrl+C to stop)
-powershell -ExecutionPolicy Bypass -File deploy\pi.ps1 restart
-powershell -ExecutionPolicy Bypass -File deploy\pi.ps1 backup       # back up now
-powershell -ExecutionPolicy Bypass -File deploy\pi.ps1 pull-backup  # copy the newest backup to this laptop
+ssh-keygen -t ed25519
+type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh pi@10.202.6.57 "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys"
 ```
-Running `pull-backup` now and then keeps a copy of your data off the Pi.
-
-## 8. Next (after it has run a few days)
-
-These come in the next build, in this order:
-1. **Tailscale + login.** Private HTTPS access from anywhere to your own app, and passkey sign-in.
-   Until then, keep port 8000 on your home Wi-Fi only (don't port-forward it).
-2. **Public booking page.** Tailscale Funnel (free) plus a Gmail app password for the emails.
-   The README has the commands; we'll do it together once login is in place.
+Press Enter at the ssh-keygen prompts. After this, `ssh` and `scp` no longer ask for the Pi password.
 
 ## If something goes wrong
 
-| Symptom | Try |
+| Symptom | Try (Pi) |
 |---|---|
-| `ssh timepi` asks for a password | Re-run `deploy\ssh-setup.ps1` |
-| Deploy says "Tests failed" | Run `.venv\Scripts\python -m pytest` and send me the output |
-| Page won't load after deploy | `deploy\pi.ps1 logs` and send me the last lines |
-| "Address already in use" in the logs | The old version is still running; redo step 2 |
-| The Pi feels slow | `deploy\pi.ps1 status` shows memory; the service is capped at 300 MB |
+| Page won't load | `journalctl -u time-assistant -n 50` and send me the output |
+| "Address already in use" in the log | `pkill -f "uvicorn app.main:app"` then `sudo systemctl restart time-assistant` |
+| `pip install` fails | `sudo apt install -y python3-dev build-essential` then retry step 4 |
+| Service won't start after an update | `cat /etc/systemd/system/time-assistant.service` and check the paths |
+
+Until login is added, keep port 8000 on your home Wi-Fi only (don't port-forward it).
