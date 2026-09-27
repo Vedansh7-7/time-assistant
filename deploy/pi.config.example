@@ -1,0 +1,6 @@
+# Copy to deploy/pi.config (git-ignored) and adjust. Read by deploy.ps1, pi.ps1 and deploy.sh.
+PI_HOST=10.202.6.57
+PI_USER=pi
+PI_DIR=/home/pi/time-assistant
+# Name used for the SSH alias and key (ssh timepi)
+PI_ALIAS=timepi

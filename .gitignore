@@ -5,3 +5,7 @@ __pycache__/
 .pytest_cache/
 *.zip
 .impeccable/live*
+deploy/pi.config
+backups/
+REVISION
+screenshots/

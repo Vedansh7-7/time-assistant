@@ -6,12 +6,18 @@ DIR="$(cd "$(dirname "$0")/.." && pwd)"
 USER_NAME="$(id -un)"
 cd "$DIR"
 
-sudo apt-get update -qq
-sudo apt-get install -y -qq python3-venv sqlite3
+if ! dpkg -s python3-venv sqlite3 curl >/dev/null 2>&1; then
+  sudo apt-get update -qq
+  sudo apt-get install -y -qq python3-venv sqlite3 curl
+fi
 
 if [ ! -d .venv ]; then python3 -m venv .venv; fi
-.venv/bin/pip install -q --upgrade pip
-.venv/bin/pip install -q -r requirements.txt
+# Reinstall dependencies only when requirements.txt changed (pip on a Pi 3 is slow).
+if ! cmp -s requirements.txt .venv/.requirements.installed 2>/dev/null; then
+  .venv/bin/pip install -q --upgrade pip
+  .venv/bin/pip install -q -r requirements.txt
+  cp requirements.txt .venv/.requirements.installed
+fi
 
 # Back up the database before upgrading (schema migrations run automatically on start).
 if [ -f data/time_assistant.db ]; then
